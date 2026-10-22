@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f2e8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Om de Hoek">
+<meta name="description" content="Leuke plekken op wandelafstand: musea, koffie, eten en meer.">
+<title>Om de Hoek</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="where">
+      <button class="loc" id="loc-btn" type="button"><span class="dot" id="loc-dot"></span><span class="mono" id="loc-label">Locatie zoeken…</span></button>
+      <button class="mono radius" id="radius-btn" type="button" aria-label="Wandeltijd wijzigen">15 min</button>
+    </div>
+    <h1 class="serif" id="headline">Om de <i>hoek</i></h1>
+    <label class="searchbar" for="q">
+      <span class="ring" aria-hidden="true"></span>
+      <input id="q" type="search" placeholder="Zoek op naam of soort" autocomplete="off" enterkeyhint="search">
+      <button class="clear" id="clear" type="button" aria-label="Wis zoekopdracht" hidden>×</button>
+    </label>
+  </header>
+
+  <nav class="chips" id="chips" aria-label="Soort"></nav>
+
+  <main class="list" id="list" aria-live="polite"></main>
+
+  <nav class="tabbar" aria-label="Weergave">
+    <button class="tab on" data-view="near" type="button"><span class="ti ti-near"></span><span>Rond je</span></button>
+    <button class="tab" data-view="search" type="button"><span class="ti ti-search"></span><span>Zoeken</span></button>
+    <button class="tab" data-view="saved" type="button"><span class="ti ti-saved"></span><span>Bewaard</span></button>
+  </nav>
+</div>
+
+<section class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="d-name">
+  <div class="d-map" id="d-map"></div>
+  <button class="d-close" id="d-close" type="button" aria-label="Terug">←</button>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="mono accent" id="d-meta"></div>
+    <h2 class="serif" id="d-name"></h2>
+    <div class="facts" id="d-facts"></div>
+    <div class="actions">
+      <a class="btn ink" id="d-walk" target="_blank" rel="noopener">Wandel erheen</a>
+      <div class="pair">
+        <button class="btn ghost" id="d-save" type="button">Bewaar</button>
+        <a class="btn ghost" id="d-web" target="_blank" rel="noopener">Website</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="picker" id="picker" hidden role="dialog" aria-modal="true" aria-labelledby="p-title">
+  <div class="sheet">
+    <div class="grab"></div>
+    <h2 class="serif" id="p-title">Waar ben je?</h2>
+    <p class="mute" id="p-why">Zoek een straat, plein of buurt, of kies hieronder.</p>
+    <label class="searchbar" for="p-q"><span class="ring" aria-hidden="true"></span><input id="p-q" type="search" placeholder="Straat, plein of buurt" autocomplete="off" enterkeyhint="search"></label>
+    <div class="p-results" id="p-results"></div>
+    <div class="p-presets">
+      <button class="chip" type="button" id="p-gps">Gebruik mijn locatie</button>
+      <button class="chip" type="button" data-lat="51.5117" data-lon="-0.1240" data-label="Covent Garden, London">Covent Garden, London</button>
+      <button class="chip" type="button" data-lat="51.0545" data-lon="3.7206" data-label="Korenmarkt, Gent">Korenmarkt, Gent</button>
+    </div>
+    <button class="btn ghost" id="p-close" type="button">Sluiten</button>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
