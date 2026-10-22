@@ -389,13 +389,15 @@ function visible() {
   }
   const g = GROUPS.find(x => x.id === state.group);
   if (!q && g.kinds) list = list.filter(p => g.kinds.includes(p.kind));
-  if (!q && g.id === 'top') list = list.filter(p => p.star || ['museum', 'sight', 'view', 'castle', 'zoo'].includes(p.kind));
+  if (!q && g.id === 'top') list = list.filter(isTop);
   return list.sort((a, b) => a.m - b.m);
 }
 
+const isTop = p => p.star || ['museum', 'sight', 'view', 'castle', 'zoo'].includes(p.kind);
+
 function groupCounts() {
   const near = withDistance(state.places).filter(p => p.min <= state.minutes);
-  const c = { all: near.length, top: near.filter(p => p.star || ['museum', 'sight', 'view', 'castle', 'zoo'].includes(p.kind)).length };
+  const c = { all: near.length, top: near.filter(isTop).length };
   for (const g of GROUPS) if (g.kinds) c[g.id] = near.filter(p => g.kinds.includes(p.kind)).length;
   return c;
 }
@@ -411,8 +413,9 @@ const $ = id => document.getElementById(id);
 const els = {
   locBtn: $('loc-btn'), locDot: $('loc-dot'), locLabel: $('loc-label'), radius: $('radius-btn'), headline: $('headline'),
   q: $('q'), clear: $('clear'), chips: $('chips'), list: $('list'),
-  detail: $('detail'), dMap: $('d-map'), dMeta: $('d-meta'), dName: $('d-name'), dFacts: $('d-facts'),
+  detail: $('detail'), dMap: $('d-map'), dTags: $('d-tags'), dName: $('d-name'), dFacts: $('d-facts'),
   dWalk: $('d-walk'), dSave: $('d-save'), dWeb: $('d-web'), dClose: $('d-close'),
+  mapview: $('mapview'), bigMap: $('big-map'), mapChips: $('map-chips'), mapStatus: $('map-status'), mapCard: $('map-card'), recenter: $('recenter'),
   picker: $('picker'), pWhy: $('p-why'), pQ: $('p-q'), pResults: $('p-results'), pClose: $('p-close'), pGps: $('p-gps'),
 };
 
@@ -429,25 +432,33 @@ function h(tag, attrs = {}, ...kids) {
 
 function renderHeader() {
   els.locLabel.textContent = state.pos ? (state.label || 'Hier') : 'Locatie zoeken…';
-  els.radius.textContent = `${state.minutes} min`;
+  els.radius.textContent = `${state.minutes} min te voet`;
   const n = state.loading ? 0 : visible().length;
   // The pulsing dot says the list is still filling in.
   setDot(!state.pos || state.loading || state.partial);
   let first, second;
-  if (state.view === 'saved') { first = ['Bewaard']; second = 'voor straks'; }
-  else if (state.view === 'search') { first = ['Zoek']; second = state.query ? `${n} gevonden` : 'op naam of soort'; }
-  else { first = ['Om de ', h('i', {}, 'hoek')]; second = !state.pos ? 'waar ben je?' : state.loading ? 'even rondkijken…' : `${n} ${n === 1 ? 'plek' : 'plekken'}`; }
-  els.headline.replaceChildren(h('span', {}, first), h('span', { class: 'mute' }, second));
+  if (state.view === 'saved') { first = 'Bewaard'; second = 'voor straks'; }
+  else if (state.view === 'search') { first = state.query ? `${n} gevonden` : 'Zoeken'; second = 'op naam of soort'; }
+  else if (!state.pos) { first = 'Om de Hoek'; second = 'waar ben je?'; }
+  else if (state.loading) { first = 'Even rondkijken'; second = 'om de hoek'; }
+  else { first = `${n} ${n === 1 ? 'plek' : 'plekken'}`; second = 'om de hoek'; }
+  els.headline.replaceChildren(h('span', {}, first), h('span', { class: 'sub' }, second));
+}
+
+function chipButtons() {
+  const counts = state.places.length ? groupCounts() : {};
+  return GROUPS.filter(g => g.id === 'all' || !state.places.length || counts[g.id] > 0).map(g =>
+    h('button', { class: 'chip' + (g.id === state.group ? ' on' : ''), type: 'button', onclick: () => {
+      state.group = g.id; state.shown = 60; render();
+      if (state.view !== 'map') window.scrollTo({ top: 0 });
+    } },
+      g.label, counts[g.id] != null ? h('span', { class: 'n' }, String(counts[g.id])) : null));
 }
 
 function renderChips() {
   const show = state.view === 'near' && !state.query;
   els.chips.hidden = !show;
-  if (!show) return;
-  const counts = state.places.length ? groupCounts() : {};
-  els.chips.replaceChildren(...GROUPS.filter(g => g.id === 'all' || !state.places.length || counts[g.id] > 0).map(g =>
-    h('button', { class: 'chip' + (g.id === state.group ? ' on' : ''), type: 'button', onclick: () => { state.group = g.id; state.shown = 60; render(); window.scrollTo({ top: 0 }); } },
-      g.label, counts[g.id] != null ? h('span', { class: 'n' }, String(counts[g.id])) : null)));
+  if (show) els.chips.replaceChildren(...chipButtons());
 }
 
 function row(p, withAddress) {
@@ -459,21 +470,21 @@ function row(p, withAddress) {
       h('span', { class: 'r-name' }, p.name),
       withAddress && p.address ? h('span', { class: 'r-addr' }, p.address.replace('\n', ', ')) : null,
       h('span', { class: 'r-tags' },
-        h('span', { class: 'mono mute' }, kindLabel(p)),
-        p.star ? h('span', { class: 'mono fav' }, 'aanrader') : null,
-        fav ? h('span', { class: 'mono fav' }, 'bewaard') : null)),
-    h('span', { class: 'mins' }, h('b', {}, String(p.min)), h('span', { class: 'mono mute' }, 'min')));
+        h('span', { class: 'cap' }, kindLabel(p)),
+        p.star ? h('span', { class: 'cap fav' }, 'aanrader') : null,
+        fav ? h('span', { class: 'cap fav' }, 'bewaard') : null)),
+    h('span', { class: 'mins' }, h('b', {}, String(p.min)), h('span', { class: 'cap' }, 'min')));
 }
 
 function note(title, text, action) {
-  return h('div', { class: 'note' }, h('p', { class: 'serif' }, title), text ? h('p', {}, text) : null, action || null);
+  return h('div', { class: 'note' }, h('p', { class: 'disp' }, title), text ? h('p', {}, text) : null, action || null);
 }
 
 function renderList() {
   const L = els.list;
   if (!state.pos) {
     L.replaceChildren(note('Waar ben je?', 'Om de Hoek gebruikt je locatie om te tonen wat er te voet bereikbaar is.',
-      h('button', { class: 'btn ink', type: 'button', style: 'padding:0 24px', onclick: startGps }, 'Gebruik mijn locatie')));
+      h('button', { class: 'btn fill', type: 'button', style: 'padding:0 24px', onclick: startGps }, 'Gebruik mijn locatie')));
     return;
   }
   if (state.view === 'saved') {
@@ -487,7 +498,7 @@ function renderList() {
     return;
   }
   if (state.error) {
-    L.replaceChildren(note('Even geen kaart', state.error, h('button', { class: 'btn ghost', type: 'button', style: 'padding:0 24px', onclick: () => { state.fetchedAt = null; loadPlaces(); } }, 'Opnieuw')));
+    L.replaceChildren(note('Even geen kaart', state.error, h('button', { class: 'btn soft', type: 'button', style: 'padding:0 24px', onclick: () => { state.fetchedAt = null; loadPlaces(); } }, 'Opnieuw')));
     return;
   }
   const list = visible();
@@ -495,7 +506,7 @@ function renderList() {
   const kids = list.slice(0, state.shown).map(p => row(p, searching));
   if (list.length > state.shown) kids.push(h('button', { class: 'more', type: 'button', onclick: () => { state.shown += 60; renderList(); } }, `Toon meer (${list.length - state.shown})`));
   if (searching && state.remote.length) {
-    kids.push(h('div', { class: 'section-h mono mute' }, 'Ook in de buurt'));
+    kids.push(h('div', { class: 'section-h cap' }, 'Ook in de buurt'));
     kids.push(...withDistance(state.remote).sort((a, b) => a.m - b.m).map(p => row(p, true)));
   }
   if (!kids.length) {
@@ -512,8 +523,103 @@ function renderTabs() {
 
 function render() {
   els.clear.hidden = !state.query;
-  renderHeader(); renderChips(); renderList(); renderTabs();
+  renderHeader(); renderChips(); renderList(); renderTabs(); renderMapView();
 }
+
+// ---------- map view ----------
+// Every place the list would show, as a dot; the dashed circle is the chosen walking time.
+let bigMap, bigLayer, bigCircle, bigMe, selectedId = null, lastFitKey = '';
+
+function nearForMap() {
+  const g = GROUPS.find(x => x.id === state.group);
+  let list = withDistance(state.places).filter(p => p.min <= state.minutes);
+  if (g.kinds) list = list.filter(p => g.kinds.includes(p.kind));
+  if (g.id === 'top') list = list.filter(isTop);
+  return list;
+}
+
+function renderMapView() {
+  const show = state.view === 'map';
+  els.mapview.hidden = !show;
+  document.body.style.overflow = show || !els.detail.hidden ? 'hidden' : '';
+  if (!show) return;
+  els.mapChips.replaceChildren(...chipButtons());
+  if (!state.pos) {
+    els.mapStatus.textContent = 'Kies eerst waar je bent';
+    els.mapCard.hidden = true;
+    return;
+  }
+  if (!window.L) { els.mapStatus.textContent = 'De kaart laadt niet. Controleer je verbinding.'; return; }
+  const list = nearForMap();
+  els.mapStatus.textContent = state.loading ? 'Even rondkijken…'
+    : `${list.length} ${list.length === 1 ? 'plek' : 'plekken'} binnen ${state.minutes} min${state.partial ? ', zoekt verder…' : ''}`;
+
+  if (!bigMap) {
+    bigMap = L.map(els.bigMap, { zoomControl: false, preferCanvas: true, zoomSnap: 0.25 });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap', className: 'tiles' }).addTo(bigMap);
+    bigLayer = L.layerGroup().addTo(bigMap);
+    bigMap.on('click', () => selectOnMap(null));
+  }
+  const css = getComputedStyle(document.documentElement);
+  const color = name => css.getPropertyValue(name).trim();
+  const here = [state.pos.lat, state.pos.lon];
+  const radius = radiusFor(state.minutes);
+  if (!lastFitKey) bigMap.setView(here, 15);
+
+  if (!bigCircle) {
+    bigCircle = L.circle(here, { radius, color: color('--blue'), weight: 2, dashArray: '6 6', fillColor: color('--blue'), fillOpacity: 0.06, interactive: false }).addTo(bigMap);
+    bigMe = L.marker(here, { icon: L.divIcon({ className: 'pin-me', iconSize: [18, 18] }), interactive: false, zIndexOffset: 1000 }).addTo(bigMap);
+  } else {
+    bigCircle.setLatLng(here).setRadius(radius);
+    bigMe.setLatLng(here);
+  }
+
+  bigLayer.clearLayers();
+  // Picks are drawn last so they sit on top.
+  const ordered = [...list].sort((a, b) => (a.star === b.star ? 0 : a.star ? 1 : -1));
+  for (const p of ordered) {
+    const sel = p.id === selectedId;
+    const dot = L.circleMarker([p.lat, p.lon], {
+      radius: sel ? 11 : p.star ? 8 : 6.5,
+      color: color('--card'), weight: sel ? 4 : 2.5,
+      fillColor: sel ? color('--ink') : p.star ? color('--blue-deep') : color('--blue'), fillOpacity: 1,
+    });
+    dot.on('click', e => { L.DomEvent.stopPropagation(e); selectOnMap(p.id); });
+    bigLayer.addLayer(dot);
+  }
+  renderMapCard(list);
+
+  // Fit to the walking circle once per place and walking time, not on every refresh.
+  const fitKey = `${state.pos.lat.toFixed(4)},${state.pos.lon.toFixed(4)},${state.minutes}`;
+  setTimeout(() => {
+    bigMap.invalidateSize();
+    if (fitKey !== lastFitKey) {
+      lastFitKey = fitKey;
+      bigMap.fitBounds(L.latLng(here).toBounds(radius * 2), { paddingTopLeft: [16, 110], paddingBottomRight: [16, 20] });
+    }
+  }, 30);
+}
+
+function selectOnMap(id) {
+  selectedId = id;
+  renderMapView();
+}
+
+function renderMapCard(list) {
+  const p = list.find(x => x.id === selectedId);
+  els.mapCard.hidden = !p;
+  // Leave the card alone while the list fills in, so a tap on it is never lost.
+  const key = p ? `${p.id}|${p.min}|${!!state.saved[p.id]}` : '';
+  if (!p || els.mapCard.dataset.key === key) return;
+  els.mapCard.dataset.key = key;
+  els.mapCard.replaceChildren(
+    row(p, true),
+    h('div', { class: 'pair' },
+      h('a', { class: 'btn fill', href: walkUrl(p), target: '_blank', rel: 'noopener' }, 'Wandel erheen'),
+      h('button', { class: 'btn soft', type: 'button', onclick: () => openDetail(p) }, 'Meer info')));
+}
+
+const walkUrl = p => `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking`;
 
 // ---------- detail ----------
 let map, layer;
@@ -522,9 +628,12 @@ async function openDetail(p) {
   document.body.style.overflow = 'hidden';
   history.pushState({ detail: true }, '');
   const m = state.pos ? meters(state.pos, p) : 0;
-  els.dMeta.textContent = state.pos ? `${kindLabel(p)} · ${walkMin(m)} min te voet · ${fmtDist(m)}` : kindLabel(p);
+  els.dTags.replaceChildren(
+    h('span', { class: 'tag' }, kindLabel(p)),
+    state.pos ? h('span', { class: 'tag blue' }, `${walkMin(m)} min · ${fmtDist(m)}`) : null,
+    p.star ? h('span', { class: 'tag star' }, 'aanrader') : null);
   els.dName.textContent = p.name;
-  els.dWalk.href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}&travelmode=walking`;
+  els.dWalk.href = walkUrl(p);
   els.dWeb.hidden = !p.website;
   if (p.website) els.dWeb.href = /^https?:/.test(p.website) ? p.website : 'https://' + p.website;
   renderSave(p);
@@ -555,7 +664,7 @@ function renderFacts(p, address) {
   if (p.cuisine.length) facts.push(['Keuken', p.cuisine.map(c => CUISINE_NL[c] || c.replace(/_/g, ' ')).join(', ')]);
   const extra = [t.fee === 'no' && 'gratis toegang', t.wheelchair === 'yes' && 'rolstoeltoegankelijk', t.outdoor_seating === 'yes' && 'terras', t.diet_vegan === 'yes' && 'vegan opties', t.internet_access === 'wlan' && 'wifi'].filter(Boolean);
   if (extra.length) facts.push(['Goed om te weten', extra.join(' · ')]);
-  els.dFacts.replaceChildren(...facts.map(([k, v, cls]) => h('div', { class: 'fact' }, h('span', { class: 'mono mute' }, k), h('span', { class: 'v' + (cls ? ' ' + cls : '') }, v))));
+  els.dFacts.replaceChildren(...facts.map(([k, v, cls]) => h('div', { class: 'fact' }, h('span', { class: 'cap' }, k), h('span', { class: 'v' + (cls ? ' ' + cls : '') }, v))));
 }
 
 const DAYS = { Mo: 'ma', Tu: 'di', We: 'wo', Th: 'do', Fr: 'vr', Sa: 'za', Su: 'zo', PH: 'feestdagen' };
@@ -602,7 +711,7 @@ function drawMap(p) {
 function closeDetail(fromPop) {
   if (els.detail.hidden) return;
   els.detail.hidden = true;
-  document.body.style.overflow = '';
+  document.body.style.overflow = state.view === 'map' ? 'hidden' : '';
   if (!fromPop && history.state?.detail) history.back();
 }
 
@@ -629,7 +738,7 @@ els.pQ.addEventListener('input', () => {
         const name = pr.name || [pr.street, pr.housenumber].filter(Boolean).join(' ');
         const where = [pr.district || pr.locality, pr.city, pr.country].filter(Boolean).join(', ');
         return h('button', { type: 'button', onclick: () => choose(lat, lon, [name, pr.city].filter(Boolean).join(', ')) },
-          h('span', { style: 'font-weight:600' }, name), h('span', { class: 'mono mute' }, where));
+          h('span', { style: 'font-weight:600' }, name), h('span', { class: 'cap' }, where));
       }));
     } catch { /* keep typing */ }
   }, 300);
@@ -671,6 +780,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   if (state.view === 'search') els.q.focus();
 }));
 els.dClose.addEventListener('click', () => closeDetail(false));
+els.recenter.addEventListener('click', () => { lastFitKey = ''; selectedId = null; renderMapView(); });
 window.addEventListener('popstate', () => closeDetail(true));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDetail(false); closePicker(); } });
 
