@@ -439,7 +439,7 @@ function renderHeader() {
   let first, second;
   if (state.view === 'saved') { first = 'Bewaard'; second = 'voor straks'; }
   else if (state.view === 'search') { first = state.query ? `${n} gevonden` : 'Zoeken'; second = 'op naam of soort'; }
-  else if (!state.pos) { first = 'Om de Hoek'; second = 'waar ben je?'; }
+  else if (!state.pos) { first = 'Slenter'; second = 'waar ben je?'; }
   else if (state.loading) { first = 'Even rondkijken'; second = 'om de hoek'; }
   else { first = `${n} ${n === 1 ? 'plek' : 'plekken'}`; second = 'om de hoek'; }
   els.headline.replaceChildren(h('span', {}, first), h('span', { class: 'sub' }, second));
@@ -483,7 +483,7 @@ function note(title, text, action) {
 function renderList() {
   const L = els.list;
   if (!state.pos) {
-    L.replaceChildren(note('Waar ben je?', 'Om de Hoek gebruikt je locatie om te tonen wat er te voet bereikbaar is.',
+    L.replaceChildren(note('Waar ben je?', 'Slenter gebruikt je locatie om te tonen wat er te voet bereikbaar is.',
       h('button', { class: 'btn fill', type: 'button', style: 'padding:0 24px', onclick: startGps }, 'Gebruik mijn locatie')));
     return;
   }
